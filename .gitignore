@@ -133,3 +133,6 @@ dmypy.json
 
 scraper/data/images/
 scraper/log.txt
+
+#model files
+movielm/model/gpt2_movie_description
