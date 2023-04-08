@@ -38,7 +38,7 @@ def scrape(movie_specs: dict) -> None:
 
     # Shuffle images to get different images for each movie
     random.shuffle(images)
-    num_img: int = 10 if len(images) > 9 else len(images)
+    num_img: int = 6 if len(images) > 5 else len(images)
 
     # Wait for 2 seconds to avoid getting blocked
     time.sleep(2)
@@ -67,13 +67,17 @@ if __name__ == '__main__':
     #             result = future.result()
     #         except Exception as e:
     #             print(f"Exception occurred: {e}")
-
     # Scrape images with progress bar using alive_progress shown in the terminal
-    with alive_bar(len(title_imdb)) as progress:
+    with alive_bar(len(title_imdb), title="Scraping data") as progress, open("log.txt", "w") as f:
         for movie in title_imdb:
             try:
                 scrape(movie)
             except Exception as e:
-                print(f"Exception occurred: {e}", file=sys.stderr)
+                # print(f"Exception occurred: {e}", file=sys.stderr)
+                progress.text(f"Exception occurred: {e}")
+                try:
+                    f.write(f"{movie['title']} {e}\n")
+                except:
+                    pass
             finally:
                 progress()
