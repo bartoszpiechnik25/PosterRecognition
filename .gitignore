@@ -132,7 +132,7 @@ dmypy.json
 .ipynb_checkpoints
 
 scraper/data/images/
-scraper/log.txt
 
 #model files
 movielm/model/gpt2_movie_description
+scraper/data/logs.txt
