@@ -136,3 +136,4 @@ scraper/data/images/
 #model files
 movielm/model/gpt2_movie_description
 scraper/data/logs.txt
+*.pth
