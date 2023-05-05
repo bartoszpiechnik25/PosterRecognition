@@ -1,6 +1,7 @@
 import os, sys, shutil, random
 from alive_progress import alive_bar
 from torch.utils.data import Dataset
+import torchvision.transforms as T
 from typing import Callable, Tuple
 import torch
 from PIL import Image
@@ -73,7 +74,7 @@ class PosterDataset(Dataset):
 
         self._postersPaths = []
         for className in self.classToIdx.keys():
-            clsPath: str = os.path.join(self._path, className, split) 
+            clsPath: str = os.path.join(datasetRootPath, className, split) 
             dirnames: list =\
             [[os.path.join(clsPath, poster), self.classToIdx[className]]\
              for poster in os.listdir(clsPath)]
@@ -96,7 +97,7 @@ class PosterDataset(Dataset):
 
         if self.transform:
             image = self.transform(image)
-        return image, y
+        return image, torch.tensor(y, dtype=torch.long)
     
     def __len__(self) -> int:
         """
@@ -106,6 +107,57 @@ class PosterDataset(Dataset):
             int: Number of all posters in the dataset.
         """
         return len(self._postersPaths)
+
+    def idxToClassName(self, idx: int) -> str:
+        """
+        Returns the class name for a given index.
+
+        Args:
+            idx (index): Index of the class.
+
+        Returns:
+            str: Class name.
+        """
+        return self.idxToClass[idx]
+
+    def getNumClasses(self) -> int:
+        """
+        Returns the number of classes in the dataset.
+
+        Returns:
+            int: Number of classes in the dataset.
+        """
+        return len(self.classToIdx)
+    
+    @staticmethod
+    def getTrainTransforms() -> T.Compose:
+        """
+        Returns a composition of transforms for the dataset.
+
+        Returns:
+            T.Compose: Composition of transforms.
+        """
+        return T.Compose([
+            T.Resize((224, 224)),
+            T.ToTensor(),
+            T.Normalize((0.5, 0.5, 0.5),
+                        (0.5, 0.5, 0.5))
+        ])
+    
+    @staticmethod
+    def getValTransforms() -> T.Compose:
+        """
+        Returns a composition of transforms for the dataset.
+
+        Returns:
+            T.Compose: Composition of transforms.
+        """
+        return T.Compose([
+            T.Resize((224, 224)),
+            T.ToTensor(),
+            T.Normalize((0.5, 0.5, 0.5),
+                        (0.5, 0.5, 0.5))
+        ])
 
             
 if __name__ == '__main__':
