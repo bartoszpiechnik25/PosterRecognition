@@ -2,9 +2,10 @@ import os, sys, shutil, random
 from alive_progress import alive_bar
 from torch.utils.data import Dataset
 import torchvision.transforms as T
-from typing import Callable, Tuple
+from typing import Any, Callable, Tuple
 import torch
 from PIL import Image
+from transformers import ViTImageProcessor
 
 def split_train_val_test(path: str) -> None:
     """
@@ -93,7 +94,7 @@ class PosterDataset(Dataset):
         """
         x, y = self._postersPaths[index]
 
-        image = Image.open(x)
+        image = Image.open(x).convert('RGB')
 
         if self.transform:
             image = self.transform(image)
@@ -130,7 +131,7 @@ class PosterDataset(Dataset):
         return len(self.classToIdx)
     
     @staticmethod
-    def getTrainTransforms() -> T.Compose:
+    def getTrainTransforms(img_size: int = 224) -> torch.Tensor:
         """
         Returns a composition of transforms for the dataset.
 
@@ -138,14 +139,17 @@ class PosterDataset(Dataset):
             T.Compose: Composition of transforms.
         """
         return T.Compose([
-            T.Resize((224, 224)),
+            T.Resize((img_size, img_size), antialias=True),
+            T.CenterCrop(img_size),
+            T.RandomRotation(degrees=15),
+            T.RandomPerspective(distortion_scale=0.2),
             T.ToTensor(),
-            T.Normalize((0.5, 0.5, 0.5),
-                        (0.5, 0.5, 0.5))
+            T.Normalize(mean=[0.5, 0.5, 0.5], 
+                        std=[0.5, 0.5, 0.5])
         ])
     
     @staticmethod
-    def getValTransforms() -> T.Compose:
+    def getValTransforms(img_size: int = 224) -> torch.Tensor:
         """
         Returns a composition of transforms for the dataset.
 
@@ -153,24 +157,71 @@ class PosterDataset(Dataset):
             T.Compose: Composition of transforms.
         """
         return T.Compose([
-            T.Resize((224, 224)),
+            T.Resize((img_size, img_size), antialias=True),
             T.ToTensor(),
-            T.Normalize((0.5, 0.5, 0.5),
-                        (0.5, 0.5, 0.5))
+            T.Normalize(mean=[0.5, 0.5, 0.5], 
+                        std=[0.5, 0.5, 0.5])
         ])
+
+class Transform:
+    def __init__(self, image_size: int=224, transform: Callable=None) -> None:
+        self.image_size = image_size
+        self.transform = transform
+    
+    def __call__(self, imgs: torch.Tensor) -> torch.Tensor:
+        return self.transform(imgs)
+        
 
             
 if __name__ == '__main__':
-    path = "/home/barti/PosterRecognition/scraper/data/images"
-    dirs = os.listdir(path)
-    with alive_bar(len(dirs)) as bar, open(path + "logs.txt", 'w+') as f:
-        for directory in dirs:
-            try:
-                split_train_val_test(os.path.join(path, directory))
-            except:
-                f.write(f"Error occured while processing -> {directory}\n")
-            finally:
-                bar()
+    # path = "/home/barti/PosterRecognition/scraper/data/images"
+    # dirs = os.listdir(path)
+    # with alive_bar(len(dirs)) as bar, open(path + "logs.txt", 'w+') as f:
+    #     for directory in dirs:
+    #         try:
+    #             split_train_val_test(os.path.join(path, directory))
+    #         except:
+    #             f.write(f"Error occured while processing -> {directory}\n")
+    #         finally:
+    #             bar()
+    from torch.utils.data import DataLoader
+    path = '/home/barti/PosterRecognition'
+    train_transform = Transform(transform=PosterDataset.getTrainTransforms())
+    val_transform = Transform(transform=PosterDataset.getValTransforms())
+
+    train_dataset = PosterDataset(path + '/scraper/data/images',
+                                  transform=train_transform)
+    val_dataset = PosterDataset(path + '/scraper/data/images',
+                                transform=val_transform,
+                                split='val')
+    test_dataset = PosterDataset(path + '/scraper/data/images',
+                                 transform=val_transform,
+                                 split='test')
+    EPOCHS = 5
+
+    train_loader = DataLoader(train_dataset,
+                              batch_size=16,
+                              shuffle=True,
+                              pin_memory=True,
+                              num_workers=4)
+    val_loader = DataLoader(val_dataset,
+                            batch_size=16,
+                            shuffle=True,
+                            pin_memory=True,
+                            num_workers=4)
+    test_loader = DataLoader(test_dataset,
+                             batch_size=16,
+                             shuffle=True,
+                             pin_memory=True,
+                             num_workers=4)
+
+    for epoch in range(EPOCHS):
+        for batch, (X, Y) in enumerate(train_loader):
+            X = X.to('cuda')
+            Y = Y.to('cuda')
+            print(X.shape, Y.shape)
+            print(f"Batch {batch+1}/{len(train_loader)}")
+            del X, Y
 
             
 

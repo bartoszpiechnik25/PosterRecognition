@@ -6,11 +6,14 @@ import torch.nn as nn
 
 class ViTPosterClassifier(nn.Module):
 
-    def __init__(self, last_hidden_size: int = 2048, num_classes: int=4709) -> None:
+    def __init__(self, last_hidden_size: int = 2048,
+                       num_classes: int = 4709,
+                       checkpoint: str = 'google/vit-base-patch16-224-in21k') -> None:
         super().__init__()
         self.vitConfig = ViTConfig()
-        self.vit = ViTModel.from_pretrained('google/vit-base-patch16-224-in21k')
-        self.avgPool = nn.AdaptiveAvgPool1d(1)
+        self.vit = ViTModel.from_pretrained(checkpoint)
+        for param in self.vit.parameters():
+            param.requires_grad = False
         self.fullyConnected = nn.Sequential(
             nn.Linear(self.vitConfig.hidden_size, last_hidden_size),
             nn.GELU(),
@@ -31,12 +34,11 @@ class ViTPosterClassifier(nn.Module):
         """
         batch = x.shape[0]
         x: torch.Tensor = self.vit.forward(x,
-                            return_dict=False,
-                            output_attentions=False,
-                            output_hidden_states=False)[0]
+                                           return_dict=False,
+                                           output_attentions=False,
+                                           output_hidden_states=False)[0]
         
-        x = self.avgPool(x.permute(0, 2, 1)).view(batch, -1)
-        logits = self.fullyConnected(x)
+        logits = self.fullyConnected(x[:, 0, :])
 
         loss = None
         if y is not None:
@@ -77,6 +79,53 @@ class ViTPosterClassifier(nn.Module):
             path = f"/home/barti/PosterRecognition/vit/checkpoints/{self._get_name()}_state_dict.pth"
         print(f"Saving model to ---> {path}")
         torch.save(self, path)
+    
+    @staticmethod
+    def validation_loop(model: torch.nn.Module, data: torch.utils.data.DataLoader) -> float:
+        """
+        Calculates the validation loss over the whole dataset
+
+        Args:
+            model (torch.Module): Model to validate.
+            data (torch.utils.data.DataLoader): Data to validate on.
+
+        Returns:
+            float: Validation loss.
+        """
+        model.eval()
+        dataset_loss: float = .0
+        dataset_accuracy: float = .0
+
+        for j, (X, Y) in enumerate(data, 1):
+            X = X.to('cuda')
+            Y = Y.to('cuda')
+            with torch.inference_mode():
+                logits, loss = model(X, Y)
+            dataset_accuracy += ViTPosterClassifier.calculateAccuracy(logits, Y, return_percent=True)
+            dataset_loss += loss.item()
+            del X, Y
+        model.train()
+        return dataset_loss / j, dataset_accuracy / j
+
+    @staticmethod
+    def calculateAccuracy(logits: torch.Tensor,
+                          targets: torch.Tensor,
+                          return_percent: bool = True) -> float:
+        """
+        Calculates the accuracy of the model.
+
+        Args:
+            logits (torch.Tensor): Logits of the model.
+            targets (torch.Tensor): Targets.
+
+        Returns:
+            float: Accuracy.
+        """
+        predictions = logits.softmax(dim=-1).argmax(dim=-1)
+        if return_percent:
+            return (predictions == targets).sum().item() / targets.shape[0]
+        else:
+            return (predictions == targets).sum().item()
 
 
 if __name__ == '__main__':
