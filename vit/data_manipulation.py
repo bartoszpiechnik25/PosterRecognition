@@ -142,7 +142,10 @@ class PosterDataset(Dataset):
             T.Resize((img_size, img_size), antialias=True),
             T.CenterCrop(img_size),
             T.RandomRotation(degrees=15),
+            T.RandomHorizontalFlip(p=0.5),
+            T.RandomVerticalFlip(p=0.5),
             T.RandomPerspective(distortion_scale=0.2),
+            T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
             T.ToTensor(),
             T.Normalize(mean=[0.5, 0.5, 0.5], 
                         std=[0.5, 0.5, 0.5])
@@ -167,10 +170,15 @@ class Transform:
     def __init__(self, image_size: int=224, transform: Callable=None) -> None:
         self.image_size = image_size
         self.transform = transform
+        self.vit_processor = ViTImageProcessor.from_pretrained('google/vit-base-patch16-224-in21k')
     
     def __call__(self, imgs: torch.Tensor) -> torch.Tensor:
-        return self.transform(imgs)
-        
+        if self.transform:
+            imgs = self.transform(imgs)
+        imgs = self.vit_processor(imgs,
+                                  return_tensors='pt',
+                                  return_dict=False)['pixel_values'][0]
+        return imgs        
 
             
 if __name__ == '__main__':

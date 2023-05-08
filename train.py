@@ -26,8 +26,8 @@ if __name__ == '__main__':
     else:
         model = ViTPosterClassifier()
     
-    # train_transform = Transform(transform=PosterDataset.getTrainTransforms())
-    # val_transform = Transform(transform=PosterDataset.getValTransforms())
+    train_transform = Transform(transform=PosterDataset.getTrainTransforms())
+    val_transform = Transform(transform=PosterDataset.getValTransforms())
 
     dataset_path = path + '/scraper/data/images'
     train_dataset = PosterDataset(dataset_path,
@@ -39,7 +39,9 @@ if __name__ == '__main__':
                                  transform=PosterDataset.getValTransforms(),
                                  split='test')
     EPOCHS = 10
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
+    optimizer = torch.optim.AdamW(model.parameters(),
+                                  lr=1e-4,
+                                  weight_decay=1e-5)
     model.to('cuda')
 
     train_loader = DataLoader(train_dataset,
@@ -65,6 +67,7 @@ if __name__ == '__main__':
     train_acc = []
     val_acc_list = []
 
+    print(f"Training {model._get_name()} with {sum(p.numel() for p in model.parameters() if p.requires_grad):,} parameters.")
     with alive_bar(EPOCHS, title='Training', dual_line=True) as bar:
         val_loss = float('inf')
         val_acc = .0
