@@ -41,21 +41,21 @@ if __name__ == '__main__':
     EPOCHS = 10
     optimizer = torch.optim.AdamW(model.parameters(),
                                   lr=1e-4,
-                                  weight_decay=1e-5)
+                                  weight_decay=1e-4)
     model.to('cuda')
 
     train_loader = DataLoader(train_dataset,
-                              batch_size=128,
+                              batch_size=256,
                               shuffle=True,
                               pin_memory=True,
                               num_workers=4)
     val_loader = DataLoader(val_dataset,
-                            batch_size=128,
+                            batch_size=256,
                             shuffle=True,
                             pin_memory=True,
                             num_workers=4)
     test_loader = DataLoader(test_dataset,
-                             batch_size=128,
+                             batch_size=256,
                              shuffle=True,
                              pin_memory=True,
                              num_workers=4)
