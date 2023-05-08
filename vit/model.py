@@ -6,7 +6,7 @@ import torch.nn as nn
 
 class ViTPosterClassifier(nn.Module):
 
-    def __init__(self, last_hidden_size: int = 2048,
+    def __init__(self, last_hidden_size: int = 4096,
                        num_classes: int = 4709,
                        checkpoint: str = 'google/vit-base-patch16-224-in21k') -> None:
         super().__init__()
@@ -17,7 +17,7 @@ class ViTPosterClassifier(nn.Module):
         self.fullyConnected = nn.Sequential(
             nn.Linear(self.vitConfig.hidden_size, last_hidden_size),
             nn.GELU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.5),
             nn.Linear(last_hidden_size, num_classes),
         )
     
