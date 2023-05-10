@@ -138,3 +138,4 @@ movielm/model/gpt2_movie_description
 scraper/data/logs.txt
 *.pth
 scraper/data/posters
+checkpoints/logs
