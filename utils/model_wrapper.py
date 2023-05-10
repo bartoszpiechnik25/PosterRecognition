@@ -81,8 +81,12 @@ class DinoV2ClassifierMLP(DinoV2Classifier):
         super().__init__(num_embeddings, hidden_size, feature_extraction)
         self.mlp = nn.Sequential(
             nn.GELU(),
-            nn.Dropout(0.3),
-            nn.Linear(hidden_size, num_classes)
+            nn.Dropout(0.5),
+            nn.LayerNorm(hidden_size),
+            nn.Linear(hidden_size, 2 * hidden_size),
+            nn.GELU(),
+            nn.Dropout(0.5),
+            nn.Linear(2 * hidden_size, num_classes)
         )
     
     def forward(self, x: torch.Tensor, targets: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:

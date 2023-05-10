@@ -22,13 +22,13 @@ if __name__ == '__main__':
                                  transform=val_transform,
                                  split='test')
     model = DinoV2ClassifierMLP(num_classes=train_dataset.getNumClasses)
-    model.load_state_dict(torch.load(path + '/checkpoints/DinoV2Classifier_state_dict.pth').state_dict())
+    # model.load_state_dict(torch.load(path + '/checkpoints/DinoV2Classifier_unfrozen_transformer_state_dict.pth').state_dict())
     # model = from_pretrained(path + '/checkpoints/DinoV2Classifier_state_dict.pth')
     # model = torch.load(path + '/checkpoints/DinoV2Classifier_state_dict.pth')
 
-    EPOCHS = 5
+    EPOCHS = 10
     optimizer = torch.optim.AdamW(model.parameters(),
-                                  lr=1e-5,
+                                  lr=1e-4,
                                   weight_decay=1e-4)
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
     #                                             step_size=1,
@@ -36,17 +36,17 @@ if __name__ == '__main__':
     model.to('cuda')
     writer = SummaryWriter(path + '/checkpoints/logs')
     train_loader = DataLoader(train_dataset,
-                              batch_size=256,
+                              batch_size=512,
                               shuffle=True,
                               pin_memory=True,
                               num_workers=4)
     val_loader = DataLoader(val_dataset,
-                            batch_size=256,
+                            batch_size=512,
                             shuffle=True,
                             pin_memory=True,
                             num_workers=4)
     test_loader = DataLoader(test_dataset,
-                             batch_size=256,
+                             batch_size=512,
                              shuffle=True,
                              pin_memory=True,
                              num_workers=4)
@@ -85,6 +85,6 @@ if __name__ == '__main__':
     model.load_state_dict(best_weights)
     test_loss, test_acc = validation_loop(model, test_loader)
     print(f"Test loss: {test_loss:.4f}\nTest accuracy: {test_acc*100:.2f}%")
-    saveWeights(model, path + '/checkpoints/DinoV2Classifier_state_dict.pth')
+    saveWeights(model, path + '/checkpoints/DinoV2Classifier_unfrozen_transformer_state_dict.pth')
 
     
