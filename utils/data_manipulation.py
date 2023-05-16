@@ -81,11 +81,13 @@ class PosterDataset(Dataset):
         self.idxToClass = {idx: cls for cls, idx in self.classToIdx.items()}
 
         self._postersPaths = []
+        self._num_cls_samples = {}
         for className in self.classToIdx.keys():
             clsPath: str = os.path.join(datasetRootPath, className, split) 
             dirnames: list =\
             [[os.path.join(clsPath, poster), self.classToIdx[className]]\
              for poster in os.listdir(clsPath)]
+            self._num_cls_samples[self.classToIdx[className]] = len(dirnames)
             self._postersPaths.extend(dirnames)
         
     
@@ -105,7 +107,7 @@ class PosterDataset(Dataset):
 
         if self.transform:
             image = self.transform(image)
-        return image, torch.tensor(y, dtype=torch.long)
+        return image, torch.tensor(y, dtype=torch.long), torch.tensor(self._num_cls_samples[y], dtype=torch.long)
     
     def __len__(self) -> int:
         """
