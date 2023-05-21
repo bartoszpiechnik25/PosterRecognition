@@ -22,9 +22,11 @@ Main problem I think is that I have too small dataset. So model simply memorizes
 
 - [x] create a dataset
 - [x] create a model
-- [ ] use Bing/Google API to download more posters
+- [-] use Bing/Google API to download more posters
 - [ ] retraint ViT model on new improved dataset
 - [?] try different architecture (Resnet152?)
+- [x] create and evaluate prototypical netrwork for few-shot learning
+- [ ] try training with different loss (focal loss)
 - [ ] create a model that will be generating brief description about the movie based on the poster
 - [ ] dockerize the project
 - [ ] create a web app that will be using both models

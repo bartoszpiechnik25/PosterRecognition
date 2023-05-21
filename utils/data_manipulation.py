@@ -151,7 +151,7 @@ class PosterDataset(Dataset):
         return T.Compose([
                     T.Resize((img_size, img_size), antialias=True),
                     T.CenterCrop(img_size),
-                    T.RandomRotation(degrees=30),
+                    T.RandomRotation(degrees=45),
                     T.RandomPerspective(distortion_scale=0.2),
                     T.ColorJitter(brightness=0.3, contrast=0.3, hue=0.3, saturation=0.3),
                     T.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0))
@@ -183,6 +183,43 @@ class Transform:
             imgs = self.transform(imgs)
         return self.vit_processor(imgs,
                                   return_tensors='pt')['pixel_values'][0]
+
+
+class OnFlyDataAugumenter(Dataset):
+
+    def __init__(self,
+                 path: str,
+                 n_shot: int,
+                 augument_transform: T.Compose) -> None:
+        super().__init__()
+        self.batch_processor = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k")
+        self.datasetRootPath = path
+        self.classes = os.listdir(path)
+        self.augument = augument_transform
+        self.n_shot = n_shot
+        self.clsToIdx = {cls_name: idx for idx, cls_name in enumerate(self.classes)}
+        self.idxToCls = {idx: cls_n for cls_n, idx in self.clsToIdx.items()}
+    
+    def __len__(self) -> int:
+        return len(self.classes)
+
+    def __getitem__(self, index) -> Tuple[Image.Image, torch.Tensor]:
+        parent_dir = os.path.join(self.datasetRootPath, self.classes[index])
+        samples = list(map(lambda x: os.path.join(parent_dir, x), os.listdir(parent_dir)))
+        if len(samples) >= self.n_shot:
+            imgs = [Image.open(img).convert('RGB') for img in random.sample(samples, k=self.n_shot)]
+        else:
+            imgs = [Image.open(img).convert('RGB') for img in random.sample(samples, k=len(samples))]
+            while len(imgs) < self.n_shot:
+                imgs.append(self.augument(Image.open(random.choice(samples)).convert('RGB')))
+        return self.batch_processor(imgs,
+                                    return_tensors='pt')['pixel_values'],\
+            torch.tensor(self.clsToIdx[self.classes[index]], dtype=torch.long)
+
+        
+
+
+
 
 def plot_learning(title: str, x_label: str, y_label: str, epochs: List[int], **kwargs) -> None:
     plt.figure(figsize=(11,7))
