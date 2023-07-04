@@ -138,3 +138,7 @@ movielm/model/gpt2_movie_description
 scraper/data/logs.txt
 *.pth
 checkpoints/logs
+prototypical_net/model_prototype.py
+scraper/data/posters
+
+.vscode
