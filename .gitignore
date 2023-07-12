@@ -142,3 +142,6 @@ prototypical_net/model_prototype.py
 scraper/data/posters
 
 .vscode
+clip/poster_clip.py
+*.pt
+*.idx2class
