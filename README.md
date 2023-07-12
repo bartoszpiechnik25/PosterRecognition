@@ -18,6 +18,14 @@ Main problem I think is that I have too small dataset. So model simply memorizes
 
 ![Accuracy curve](vit/Accuracy_Learning_Curve.png?raw=true)
 
+## Results
+
+| Model | Top-1 | Top-3 | Top-5 |
+| ----- | ----- | ----- | ----- |
+| CLIP Zero-Shot   | 66% | 76% | 80% |
+
+
+
 ## TODO
 
 - [x] create a dataset

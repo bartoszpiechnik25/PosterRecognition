@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from transformers import CLIPProcessor, CLIPModel, BatchEncoding
 from typing import List, Dict, Union, Tuple
 from PIL import Image
+import os
 
 
 class PosterCLIP(nn.Module):
@@ -109,9 +110,10 @@ class PosterCLIP(nn.Module):
             text_embeds = self.text_embeddings / self.text_embeddings.norm(p=2, dim=-1, keepdim=True)
             image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
             logits = (torch.matmul(text_embeds, image_features.T) * scale_param).t()
-            logits = logits.softmax(dim=-1)
         else:
             logits = (torch.matmul(text_embeds, image_features.T) * scale_param).t()
+            logits = logits.softmax(dim=-1)
+
 
         # print(logits.shape)
         values, indices = torch.topk(logits, k=top_k_vals, dim=-1)
@@ -157,11 +159,12 @@ class PosterCLIP(nn.Module):
         if path is None:
             path = "./"
         embeddings, idx2class = None, None
+        print(path)
         for file in os.listdir(path):
             if file.endswith(".pt"):
-                embeddings = file
+                embeddings = os.path.join(path, file)
             elif file.endswith(".idx2class"):
-                idx2class = file
+                idx2class = os.path.join(path, file)
         return embeddings, idx2class
     
 
@@ -189,16 +192,23 @@ if __name__ == "__main__":
 
     # poster_clip.cache_text_embeddings(prompts)
     num_classes = len(prompts)
-    count = 0
+    top_1 = top_3 = top_5 = 0
 
     with alive_progress.alive_bar(len(posters)) as bar:
         for i, poster_id in enumerate(posters):
             path = os.path.join(POSTERS_PATH, poster_id, "test")
             images = os.listdir(path)
             image = Image.open(os.path.join(path, images[0]))
-            res = poster_clip.predict(image, top_k_vals=1, temperature=0)
-            if id_to_name[poster_id] in list(map(lambda val: val.replace("Poster of a movie: ", ""),res.keys())):
-                count += 1
+            res = poster_clip.predict(image, top_k_vals=5, temperature=0)
+            result_classes = list(map(lambda val: val.replace("Poster of a movie: ", ""),res.keys()))
+            if id_to_name[poster_id] in result_classes[:1]:
+                top_1 += 1
+            if id_to_name[poster_id] in result_classes[:3]:
+                top_3 += 1
+            if id_to_name[poster_id] in result_classes:
+                top_5 += 1
             bar()
     
-    print(f"Top-1 Accuracy: {(count / len(posters)*100):.4f}")
+    print(f"Top-1 Accuracy: {(top_1 / len(posters)*100):.2f}%")
+    print(f"Top-3 Accuracy: {(top_3 / len(posters)*100):.2f}%")
+    print(f"Top-5 Accuracy: {(top_5 / len(posters)*100):.2f}%")
