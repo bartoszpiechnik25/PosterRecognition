@@ -1,7 +1,7 @@
 import torch, pickle
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import CLIPProcessor, CLIPModel, BatchEncoding
+from transformers import CLIPProcessor, CLIPModel, BatchEncoding, CLIPConfig, PreTrainedModel
 from typing import List, Dict, Union, Tuple
 from PIL import Image
 import os
@@ -12,21 +12,26 @@ class PosterCLIP(nn.Module):
                  checkpoint: str = "openai/clip-vit-base-patch32",
                  device: str ='cpu',
                  inference: bool = True,
-                 default_path: str = './') -> None:
+                 path: str='./model') -> None:
         super().__init__()
-        self.clip_processor = CLIPProcessor.from_pretrained(checkpoint)
-        self.clip_model = CLIPModel.from_pretrained(checkpoint)
-        self.device = device
+        self.text_embeddings = None
+        self.idx2class = None
+        print(os.path.isdir(path), os.listdir(path))
+        if os.path.isdir(path) and os.listdir(path):
+            print('hi')
+            self.clip_processor = CLIPProcessor.from_pretrained(path + "/clip_processor")
+            self.clip_model = CLIPModel.from_pretrained(path + "/clip_model")
+            self.text_embeddings = torch.load(f'{path}/text_embeddings.pt', map_location=device)
+            self.idx2class = torch.load(f'{path}/idx2class.pt', map_location=device)
+        else:
+            print("what")
+            self.clip_processor = CLIPProcessor.from_pretrained(checkpoint)
+            self.clip_model = CLIPModel.from_pretrained(checkpoint)
         if inference:
             for param in self.clip_model.parameters():
                 param.requires_grad = False
-        self.to(self.device)
-        self.text_embeddings, self.idx2class = self.find_embeddings_file(default_path)
-        if self.text_embeddings and self.idx2class:
-            self.load_embeddings(self.text_embeddings, self.idx2class)
-        else:
-            self.text_embeddings = None
-            self.idx2class = None
+        self.device = device
+        self.to(device)
     
     def cache_text_embeddings(self, classes: List[str], batch_size: int = 512) -> torch.Tensor:
         """
@@ -119,53 +124,38 @@ class PosterCLIP(nn.Module):
         values, indices = torch.topk(logits, k=top_k_vals, dim=-1)
         values, indices = values.view(-1), indices.view(-1)
         return {self.idx2class[idx.item()]: values[i].item() for i, idx in enumerate(indices)}
-
-    def save_embeddings(self,
-                        path: str) -> None:
-        """
-        Saves the text embeddings to the given path.
-
-        Args:
-            path (str): Path to save the embeddings.
-        """
-        torch.save(self.text_embeddings, path)
-        with open(path + ".idx2class", "wb") as f:
-            pickle.dump(self.idx2class, f)
     
-    def load_embeddings(self,
-                        embeddings_path: str,
-                        idx2class_path: str) -> None:
-        """
-        Loads the text embeddings from the given path.
+    def save(self, save_directory):
+        self.clip_model.save_pretrained(save_directory+ "/clip_model")
+        self.clip_processor.save_pretrained(save_directory + "/clip_processor")
+        torch.save(self.text_embeddings, f'{save_directory}/text_embeddings.pt', map_location='cpu')
+        torch.save(self.idx2class, f'{save_directory}/idx2class.pt', map_location='cpu')
 
-        Args:
-            path (str): Path to load the embeddings.
-        """
-        self.text_embeddings = torch.load(embeddings_path)
-        with open(idx2class_path, "rb") as f:
-            self.idx2class = pickle.load(f)
-        
-    @staticmethod
-    def find_embeddings_file(path: str = None):
-        """
-        Finds the embeddings file in the given path.
+    # @staticmethod
+    # def load(path: str) -> 'PosterCLIP':
+    #     """
+    #     Loads the model.
 
-        Args:
-            path (str, optional): Path to search. Defaults to None.
+    #     Args:
+    #         path (str): Path to load the model.
 
-        Returns:
-            str: Path to the embeddings file.
-        """
-        if path is None:
-            path = "./"
-        embeddings, idx2class = None, None
-        print(path)
-        for file in os.listdir(path):
-            if file.endswith(".pt"):
-                embeddings = os.path.join(path, file)
-            elif file.endswith(".idx2class"):
-                idx2class = os.path.join(path, file)
-        return embeddings, idx2class
+    #     Returns:
+    #         torch.nn.Module: Model with loaded state dict.
+    #     """
+    #     return PosterCLIP.from_pretrained(path)
+    
+    # @staticmethod
+    # def load_pretrained(path: str="./model/clip.pt") -> 'PosterCLIP':
+    #     """
+    #     Loads the state dict of the model.
+
+    #     Args:
+    #         path (str): Path to load the state dict.
+
+    #     Returns:
+    #         torch.nn.Module: Model with loaded state dict.
+    #     """
+    #     return PosterCLIP.from_pretrained(path)
     
 
 if __name__ == "__main__":
@@ -188,7 +178,7 @@ if __name__ == "__main__":
 
     print("Caching text embeddings...")
     # poster_clip.cache_text_embeddings(prompts)
-    # poster_clip.save_embeddings("./text_embeddings.pt")
+    # poster_clip.save('./model')
 
     # poster_clip.cache_text_embeddings(prompts)
     num_classes = len(prompts)
