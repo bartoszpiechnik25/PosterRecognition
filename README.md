@@ -31,10 +31,10 @@ Main problem I think is that I have too small dataset. So model simply memorizes
 - 📎 create a model
 - 🧑‍🔬 experiment with different models
 - 🖥️ create REST API for inference
+- 🐳 dockerize the project
 
 ## TODO
 
 - 📝 create a model that will generate brief description about the movie based on the poster
 - ❓ fine-tune CLIP for better results
-- 🐳 dockerize the project
 - 🌩️ deploy the project on Google Cloud Platform (kubernetes ❔)
