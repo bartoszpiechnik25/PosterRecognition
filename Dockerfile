@@ -2,9 +2,11 @@ FROM continuumio/miniconda3
 
 WORKDIR /app
 
-COPY environment.yml .
-RUN conda env create -f environment.yml
+COPY requirements.txt requirements.txt
+
+RUN conda create -n project python=3.10
 RUN echo "source activate project" > ~/.bashrc
+RUN pip install --no-cache-dir -r requirements.txt && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 ENV PATH /opt/conda/envs/project/bin:$PATH
 
 COPY . .

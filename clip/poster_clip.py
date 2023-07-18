@@ -1,7 +1,7 @@
-import torch, pickle
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import CLIPProcessor, CLIPModel, BatchEncoding, CLIPConfig, PreTrainedModel
+from transformers import CLIPProcessor, CLIPModel, BatchEncoding
 from typing import List, Dict, Union, Tuple
 from PIL import Image
 import os
@@ -16,15 +16,12 @@ class PosterCLIP(nn.Module):
         super().__init__()
         self.text_embeddings = None
         self.idx2class = None
-        print(os.path.isdir(path), os.listdir(path))
         if os.path.isdir(path) and os.listdir(path):
-            print('hi')
             self.clip_processor = CLIPProcessor.from_pretrained(path + "/clip_processor")
             self.clip_model = CLIPModel.from_pretrained(path + "/clip_model")
             self.text_embeddings = torch.load(f'{path}/text_embeddings.pt', map_location=device)
             self.idx2class = torch.load(f'{path}/idx2class.pt', map_location=device)
         else:
-            print("what")
             self.clip_processor = CLIPProcessor.from_pretrained(checkpoint)
             self.clip_model = CLIPModel.from_pretrained(checkpoint)
         if inference:

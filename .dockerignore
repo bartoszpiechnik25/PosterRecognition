@@ -2,4 +2,16 @@
 scraper/data/
 checkpoints/
 __pycache__/
+clip/__pycache__/
+clip/clip.ipynb
 .vscode/
+vit/
+utils/
+scraper/
+prototypical_net/
+movielm/
+dino/
+train.py
+README.md
+.gitignore
+.dockerignore
