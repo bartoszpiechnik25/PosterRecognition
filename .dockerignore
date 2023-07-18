@@ -15,3 +15,4 @@ train.py
 README.md
 .gitignore
 .dockerignore
+.git/
