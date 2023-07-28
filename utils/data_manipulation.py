@@ -2,7 +2,7 @@ import os, sys, shutil, random
 from alive_progress import alive_bar
 from torch.utils.data import Dataset
 import torchvision.transforms as T
-from typing import Callable, Tuple, List
+from typing import Callable, Tuple, List, Dict
 import matplotlib.pyplot as plt
 import torch
 from PIL import Image
@@ -54,7 +54,9 @@ class PosterDataset(Dataset):
 
     def __init__(self, datasetRootPath: str,
                  transform: Callable=None,
-                 split: str='train') -> None:
+                 split: str='train',
+                 processor: Callable=None,
+                 idxToPrompt: Dict[str, str] = None) -> None:
         """
         Initializes a PosterDataset object.
 
@@ -74,11 +76,19 @@ class PosterDataset(Dataset):
             raise ValueError(f"{split} not in (train', val, test)!")
         
         self.transform = transform
+        self.processor = processor
 
         self.classToIdx = {cls: idx \
             for idx, cls in enumerate(sorted(os.listdir(datasetRootPath)))}
         
         self.idxToClass = {idx: cls for cls, idx in self.classToIdx.items()}
+
+        if idxToPrompt is None:
+            import pandas as pd
+            movies = pd.read_csv('./scraper/data/movies_with_posters_and_rich_desc.csv')
+            self.idToPrompt = {idx: f"Poster of a movie: {movies.loc[movies['imdb_id'] == idx]['title'].values[0]}" for idx in movies['imdb_id']}
+        else:
+            self.idToPrompt = idxToPrompt
 
         self._postersPaths = []
         self._num_cls_samples = {}
@@ -104,10 +114,18 @@ class PosterDataset(Dataset):
         x, y = self._postersPaths[index]
 
         image = Image.open(x).convert('RGB')
+        prompt = self.idToPrompt[self.idxToClass[y]]
+        inputs = self.processor(text=prompt,
+                                images=image,
+                                padding='max_length',
+                                max_length=64,
+                                return_tensors='pt')
 
-        if self.transform:
-            image = self.transform(image)
-        return image, torch.tensor(y, dtype=torch.long), torch.tensor(self._num_cls_samples[y], dtype=torch.long)
+        # if self.transform:
+        #     image = self.transform(image)
+        # return image, torch.tensor(y, dtype=torch.long), torch.tensor(self._num_cls_samples[y], dtype=torch.long)
+        # print(inputs['input_ids'].shape, inputs['attention_mask'].shape, inputs['pixel_values'].shape)
+        return inputs['input_ids'].view(-1), inputs['attention_mask'].view(-1), inputs['pixel_values'].squeeze(0), y
     
     def __len__(self) -> int:
         """

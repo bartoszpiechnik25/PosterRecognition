@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers import CLIPProcessor, CLIPModel, BatchEncoding
 from typing import List, Dict, Union, Tuple
+from collections import OrderedDict
 from PIL import Image
 import os
 
@@ -53,7 +54,7 @@ class PosterCLIP(nn.Module):
     def forward(self, 
                 images: Union[BatchEncoding, List[Image.Image]],
                 texts: Union[BatchEncoding, List[str]],
-                temperature: float = 0.07) -> Tuple[torch.Tensor, torch.Tensor]:
+                text_embeddings: torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:
         if isinstance(images, list):
             images = self.clip_processor(images=images,
                                          return_tensors="pt",
@@ -63,31 +64,31 @@ class PosterCLIP(nn.Module):
                                         return_tensors="pt",
                                         padding=True).to(self.device)
         image_embeddings = self.clip_model.get_image_features(**images)
-        text_embeddings = self.clip_model.get_text_features(**texts)
+        if text_embeddings is None:
+            text_embeddings = self.clip_model.get_text_features(**texts)
 
         image_embeddings = image_embeddings / image_embeddings.norm(p=2, dim=-1, keepdim=True)
         text_embeddings = text_embeddings / text_embeddings.norm(p=2, dim=-1, keepdim=True)
 
-        scale = torch.exp(torch.tensor(temperature, device=self.device))
+        scale = self.clip_model.logit_scale.exp()
         logits = torch.matmul(text_embeddings, image_embeddings.T) * scale
 
-        image_loss = F.cross_entropy(logits.t(), torch.arange(len(logits)))
-        text_loss = F.cross_entropy(logits, torch.arange(len(logits)))
+        image_loss = F.cross_entropy(logits.t(), torch.arange(len(logits), device=self.device))
+        text_loss = F.cross_entropy(logits, torch.arange(len(logits), device=self.device))
+
         return logits, (image_loss + text_loss) / 2
 
     
     @torch.inference_mode()
     def predict(self,
                 image: Union[BatchEncoding, Image.Image],
-                temperature: float = 0.1,
                 top_k_vals: int = 5,
-                use_cosine_simmilarities: bool = True) -> Dict[str, float]:
+                use_cosine_simmilarities: bool = True) -> List[Dict[str, float]]:
         """
         Predicts the classes for the given image.
 
         Args:
             image (Union[torch.Tensor, Image.Image]): Preprocessed image or PIL image.
-            temperature (float, optional): Parameter which use to scale logits. Defaults to 0.1.
             top_k_vals (int, optional): Number of top probabilities. Defaults to 5.
 
         Raises:
@@ -104,23 +105,26 @@ class PosterCLIP(nn.Module):
         if self.text_embeddings is None:
             raise RuntimeError("Text embeddings not cached. Call cache_text_embeddings() first.")
         
-        image_features = self.clip_model.get_image_features(**image).to(self.device)
-        text_embeds = self.text_embeddings
-        scale_param = torch.exp(torch.tensor(temperature, device=self.device))
+        # image_features = self.clip_model.get_image_features(**image).to(self.device)
+        # text_embeds = self.text_embeddings
+        # scale_param = self.clip_model.logit_scale.exp()
         
-        if use_cosine_simmilarities:
-            text_embeds = self.text_embeddings / self.text_embeddings.norm(p=2, dim=-1, keepdim=True)
-            image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
-            logits = (torch.matmul(text_embeds, image_features.T) * scale_param).t()
-        else:
-            logits = (torch.matmul(text_embeds, image_features.T) * scale_param).t()
-            logits = logits.softmax(dim=-1)
+        # if use_cosine_simmilarities:
+        #     text_embeds = self.text_embeddings / self.text_embeddings.norm(p=2, dim=-1, keepdim=True)
+        #     image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
+        #     logits = (torch.matmul(text_embeds, image_features.T) * scale_param).t()
+        #     logits = logits.softmax(dim=-1)
+        # else:
+        #     logits = (torch.matmul(text_embeds, image_features.T) * scale_param).t()
+        #     logits = logits.softmax(dim=-1)
+        logits, loss = self.forward(image, text_embeddings=self.text_embeddings)
 
-
-        # print(logits.shape)
         values, indices = torch.topk(logits, k=top_k_vals, dim=-1)
-        values, indices = values.view(-1), indices.view(-1)
-        return {self.idx2class[idx.item()]: values[i].item() for i, idx in enumerate(indices)}
+        res = []
+
+        for i, index in enumerate(indices):
+            res.append(OrderedDict((self.idx2class[ids.item()], values[i][j].item()) for j, ids in enumerate(index)))
+        return res, loss
     
     def save(self, save_directory):
         self.clip_model.save_pretrained(save_directory+ "/clip_model")
